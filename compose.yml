@@ -6,6 +6,17 @@ volumes:
   logs:
 
 services:
+  app:
+    container_name: app
+    build: ./app
+    ports:
+      - "8000:8000"
+    volumes:
+      - images:/app/images
+      - logs:/app/logs
+    networks:
+      - default
+
   nginx:
     container_name: nginx
     image: nginx:latest
@@ -20,3 +31,5 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
     networks:
       - default
+    depends_on:
+      - app
