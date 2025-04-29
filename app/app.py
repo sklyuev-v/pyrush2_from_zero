@@ -4,6 +4,7 @@ import os
 import io
 import hashlib
 from PIL import Image
+import json
 
 SERVER_ADDRESS = ('0.0.0.0', 8000)
 LOGFILE_PATH = 'logs'
@@ -21,7 +22,29 @@ class ImageHostingHandler(BaseHTTPRequestHandler):
             '/upload/': ImageHostingHandler.post_upload,
         }
 
+        self.get_routes = {
+            '/get_images/': ImageHostingHandler.get_images,
+        }
+
         super().__init__(request, client_address, server)
+
+    def get_images(self):
+        logger.info(f"GET {self.path}")
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json; charset=utf-8')
+        self.end_headers()
+
+        images = [f for f in os.listdir(
+            './images') if os.path.isfile(os.path.join('./images', f))]
+
+        self.wfile.write(json.dumps({'images': images}).encode('utf-8'))
+
+    def do_GET(self):
+        if self.path in self.get_routes:
+            self.get_routes[self.path](self)
+        else:
+            logger.warning(f'POST 405 {self.path}')
+            self.send_response(405, 'Method Not Allowed')
 
     def post_upload(self):
         content_length = int(self.headers.get('Content-Length'))
@@ -36,7 +59,7 @@ class ImageHostingHandler(BaseHTTPRequestHandler):
         try:
             with Image.open(image_raw_data) as img:
                 if img.format in VALID_FILE_FORMATS:
-                    img.save(f'images/{filename}.{ext}')
+                    img.save(f'images/{filename}{ext}')
                     logger.info(f'Succesfull upload - {filename}{ext}')
                 else:
                     logger.warning(
