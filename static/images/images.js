@@ -1,3 +1,6 @@
+let currentPage = 1;
+const imagesPerPage = 9;
+
 const closeBtn = document.getElementById("close");
 const imagesContainer = document.getElementById("images-placeholder");
 
@@ -6,7 +9,7 @@ function setImages(images) {
   const modalImg = document.getElementById("modal-img");
 
   images.forEach((image) => {
-    const fullImageName = image;
+    const fullImageName = image.filename + image.file_type;
     const mainDivEl = document.createElement("div");
     mainDivEl.className = "col m-2 rounded";
     mainDivEl.style.width = "310px";
@@ -68,8 +71,8 @@ function setImages(images) {
   });
 }
 
-function loadImages() {
-  fetch("/api/images/")
+function loadImages(page) {
+  fetch(`/api/images/?page=${page}`)
     .then((response) => response.json())
     .then((data) => {
       imagesContainer.innerHTML = "";
@@ -79,9 +82,24 @@ function loadImages() {
         imagesContainer.appendChild(notImagesText);
       } else {
         setImages(data.images);
+        document.getElementById("nextPage").disabled =
+          data.images.length < imagesPerPage;
+        document.getElementById("prevPage").disabled = page === 1;
+        document.getElementById("currentPage").textContent = page;
+        currentPage = page;
       }
     });
 }
+
+document.getElementById("prevPage").addEventListener("click", () => {
+  if (currentPage > 1) {
+    loadImages(currentPage - 1);
+  }
+});
+
+document.getElementById("nextPage").addEventListener("click", () => {
+  loadImages(currentPage + 1);
+});
 
 closeBtn.addEventListener("click", () => {
   modal.style.display = "none";
@@ -91,4 +109,4 @@ modal.addEventListener("click", () => {
   modal.style.display = "none";
 });
 
-loadImages();
+loadImages(1);
