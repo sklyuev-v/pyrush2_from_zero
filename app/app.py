@@ -99,11 +99,11 @@ class DBManager(metaclass=SingletonMeta):
         self.conn.commit()
 
     def delete_image(self, filename):
-        logger.info(f"Try to delete image {filename}")
+        logger.info(f"Try to delete image from database {filename}")
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(
-                    "DELETE FROM images WHERE filename = %s", (filename))
+                    "DELETE FROM images WHERE filename = %s", (filename,))
             self.conn.commit()
         except psycopg2.Error as e:
             logger.error(f"Error deleting image {e}")
@@ -117,10 +117,11 @@ class ImageHostingHandler(BaseHTTPRequestHandler):
 
         self.get_routes = {
             '/api/images/': ImageHostingHandler.get_image_gallery,
+            '/api/images-list/': ImageHostingHandler.get_image_list,
         }
 
         self.delete_routes = {
-            '/delete_image/': ImageHostingHandler.delete_image,
+            '/api/delete/': ImageHostingHandler.delete_image,
         }
 
         self.db = DBManager()
@@ -208,14 +209,26 @@ class ImageHostingHandler(BaseHTTPRequestHandler):
             logger.warning(f'POST 405 {self.path}')
             self.send_response(405, 'Method Not Allowed')
 
-    def delete_image(self, image):
-        logger.info(f'Try to delete image {image}')
-        filename, ext = os.path.splitext(image)
+    def do_DELETE(self):
+        delete_fullpath = self.path
+        delete_path_chunks = delete_fullpath.partition("/api/delete/")
+
+        if delete_path_chunks[1] in self.delete_routes:
+            self.delete_routes[delete_path_chunks[1]](
+                self, delete_path_chunks[2])
+        else:
+            logger.warning(f'POST 405 {self.path}')
+            self.send_response(405, 'Method Not Allowed')
+
+    def delete_image(self, image_id):
+        logger.info(f'Try to delete image {image_id}')
+        filename, ext = os.path.splitext(image_id)
         if not filename:
             logger.warning('Filename header not found')
             self.send_response(404)
             self.end_headers()
             return
+        logger.error(filename)
         self.db.delete_image(filename)
         image_fullpath = os.path.join('./images/', f'{filename}{ext}')
         if not os.path.exists(image_fullpath):
@@ -225,7 +238,7 @@ class ImageHostingHandler(BaseHTTPRequestHandler):
         os.remove(image_fullpath)
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Success: Image deleted')
+        self.send_header('Success', 'Image deleted')
 
 
 def run_server(server_class=HTTPServer, handler_class=ImageHostingHandler):
